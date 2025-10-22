@@ -1,42 +1,29 @@
 <?php
+header("Content-Type: application/json");
 require_once 'init.php';
 
-// Open DB connection
-$connection = openConnection();
+$conn = openConnection();
+$data = json_decode(file_get_contents("php://input"), true);
 
-// Check connection
-if ($connection->connect_error) {
-    die("Connection Error: " . $connection->connect_error);
+if (!$data || !isset($data['id'])) {
+    echo json_encode(["error" => "Invalid data"]);
+    exit;
 }
 
-// Data to update
-$id          = 1;
-$title       = 'Updated Title';
-$author      = 'Updated Author';
-$description = 'Updated description text';
-$year        = 2026;
+$id = $data['id'];
+$title = $data['title'];
+$author = $data['author'];
+$description = $data['description'];
+$year = $data['year'];
 
-// Prepare SQL statement
-$sql = "UPDATE books 
-        SET title = ?, author = ?, description = ?, year = ? 
-        WHERE id = ?";
-
-$stmt = $connection->prepare($sql);
-
-if (!$stmt) {
-    die("Prepare failed: " . $connection->error);
-}
-
-// Bind parameters and execute
+$stmt = $conn->prepare("UPDATE books SET title=?, author=?, description=?, year=? WHERE id=?");
 $stmt->bind_param("sssii", $title, $author, $description, $year, $id);
 
 if ($stmt->execute()) {
-    echo "Book updated successfully.<br>";
+    echo json_encode(["success" => true]);
 } else {
-    echo "Error: " . $stmt->error . "<br>";
+    echo json_encode(["error" => $stmt->error]);
 }
 
-// Clean up
 $stmt->close();
-closeConnection($connection);
-?>
+closeConnection($conn);

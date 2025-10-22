@@ -1,43 +1,37 @@
 <?php
-
-// Include reusable database functions
+header("Content-Type: application/json");
 require_once 'init.php';
 
-// Open DB connection
 $connection = openConnection();
 
-// Check connection error
-if ($connection->connect_error) {
-    die("Connection failed: " . $connection->connect_error);
+// Read JSON body
+$data = json_decode(file_get_contents("php://input"), true);
+
+if (!$data) {
+    echo json_encode(["error" => "Invalid JSON"]);
+    exit;
 }
 
-// Data to Insert
-$title = 'HI';
-$author = 'hey';
-$description = 'hey world';
-$year = 2025;
+$title = $data['title'] ?? '';
+$author = $data['author'] ?? '';
+$description = $data['description'] ?? '';
+$year = $data['year'] ?? 0;
 
-// Prepare & Execute Query
-$sql = "
-    INSERT INTO books (title, author, description, year)
-    VALUES (?, ?, ?, ?)
-";
-
-$stmt = $connection->prepare($sql);
-
-if (!$stmt) {
-    die("SQL Prepare Error: " . $connection->error);
+// Validate
+if (empty($title) || empty($author)) {
+    echo json_encode(["error" => "Missing required fields"]);
+    exit;
 }
 
+// Insert
+$stmt = $connection->prepare("INSERT INTO books (title, author, description, year) VALUES (?, ?, ?, ?)");
 $stmt->bind_param("sssi", $title, $author, $description, $year);
 
 if ($stmt->execute()) {
-    echo "Data inserted successfully!";
+    echo json_encode(["success" => true, "id" => $stmt->insert_id]);
 } else {
-    echo "Execution Error: " . $stmt->error;
+    echo json_encode(["error" => $stmt->error]);
 }
 
-// Close Connection
 $stmt->close();
 closeConnection($connection);
-?>

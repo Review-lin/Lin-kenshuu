@@ -1,40 +1,24 @@
 <?php
+header("Content-Type: application/json");
 require_once 'init.php';
 
-// Open DB connection
-$connection = openConnection();
+$conn = openConnection();
+$data = json_decode(file_get_contents("php://input"), true);
 
-// Check connection
-if ($connection->connect_error) {
-    die("Connection Error: " . $connection->connect_error);
+if (!$data || !isset($data['id'])) {
+    echo json_encode(["error" => "Invalid data"]);
+    exit;
 }
 
-// ID to delete
-$id = 1;
-
-// Prepare SQL statement
-$sql = "DELETE FROM books WHERE id = ?";
-
-$stmt = $connection->prepare($sql);
-
-if (!$stmt) {
-    die("Prepare failed: " . $connection->error);
-}
-
-// Bind parameter and execute
+$id = $data['id'];
+$stmt = $conn->prepare("DELETE FROM books WHERE id=?");
 $stmt->bind_param("i", $id);
 
 if ($stmt->execute()) {
-    if ($stmt->affected_rows > 0) {
-        echo "Book with ID $id deleted successfully.<br>";
-    } else {
-        echo "No record found with ID $id.<br>";
-    }
+    echo json_encode(["success" => true]);
 } else {
-    echo "Error: " . $stmt->error . "<br>";
+    echo json_encode(["error" => $stmt->error]);
 }
 
-// Clean up
 $stmt->close();
-closeConnection($connection);
-?>
+closeConnection($conn);

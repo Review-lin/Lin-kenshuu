@@ -1,41 +1,15 @@
 <?php
-/**
- * list_books.php
- * Fetch and display all books from the database.
- */
-
-// Include reusable database functions
+header("Content-Type: application/json");
 require_once 'init.php';
 
-// Open DB connection
-$connection = openConnection();
+$conn = openConnection();
+$result = $conn->query("SELECT id, title, author, description, year FROM books ORDER BY id DESC");
 
-// Run query
-$sql = "SELECT id, title, author, year FROM books";
-$result = $connection->query($sql);
-
-// Check query result
-if (!$result || $result->num_rows === 0) {
-    echo "No books found." . PHP_EOL;
-} else {
-    echo "Found {$result->num_rows} book(s):" . PHP_EOL;
-    echo str_repeat('=', 40) . PHP_EOL;
-
-    while ($book = $result->fetch_assoc()) {
-        printf(
-            "ID: %d\nTitle: %s\nAuthor: %s\nYear: %d\n%s\n",
-            $book['id'],
-            $book['title'],
-            $book['author'],
-            $book['year'],
-            str_repeat('-', 40)
-        );
-    }
+$books = [];
+while ($row = $result->fetch_assoc()) {
+    $books[] = $row;
 }
 
-// Clean up
+echo json_encode($books);
 $result->free();
-closeConnection($connection);
-
-echo "Done." . PHP_EOL;
-?>
+closeConnection($conn);
