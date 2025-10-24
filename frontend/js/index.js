@@ -1,32 +1,42 @@
 const API_BASE = "../backend";
 const grid = document.getElementById("bookGridContainer");
-const floatBtn = document.getElementById("floatingButton");
-const searchInput = document.getElementById("searchInput");
-const sortSelect = document.getElementById("sortSelect");
 const heroSection = document.getElementById("heroSection");
 
-async function loadBooks() {
-  const res = await fetch(`${API_BASE}/read.php`);
+let start = 0;
+const limit = 20;
+let loading = false;
+let allLoaded = false;
+
+async function loadBooks(initial = false) {
+  if (loading || allLoaded) return;
+  loading = true;
+
+  const res = await fetch(`${API_BASE}/read.php?start=${start}&limit=${limit}`);
   const data = await res.json();
 
-  if (data.length > 0) heroSection.style.display = "none";
-  else heroSection.style.display = "block";
+  if (initial && data.length === 0) heroSection.style.display = "block";
+  else heroSection.style.display = "none";
 
-  renderBooks(data);
+  if (data.length < limit) allLoaded = true; // reached end
+  renderBooks(data, initial ? false : true); // append if not initial
+
+  start += limit;
+  loading = false;
 }
 
-function renderBooks(books) {
-  grid.innerHTML = "";
+function renderBooks(books, append = false) {
+  if (!append) grid.innerHTML = ""; // clear only for initial load
 
   if (!books || books.length === 0) {
-    grid.innerHTML = `<p class="col-span-full text-center text-gray-500">No books found.</p>`;
+    if (!append)
+      grid.innerHTML = `<p class="col-span-full text-center text-gray-500">No books found.</p>`;
     return;
   }
 
   books.forEach((b) => {
     const card = document.createElement("div");
     card.className =
-      "bg-white rounded-xl shadow hover:shadow-md p-5 transition relative cursor-pointer";
+      "bg-white rounded-xl shadow hover:shadow-md p-5 transition relative cursor-pointer fade-in";
     card.innerHTML = `
       <h3 class="text-lg font-bold">${b.title}</h3>
       <p class="text-sm text-gray-600">by ${b.author}</p>
@@ -39,7 +49,8 @@ function renderBooks(books) {
     grid.appendChild(card);
   });
 
-  document.querySelectorAll(".delete-btn").forEach((btn) => {
+  // handle delete buttons
+  grid.querySelectorAll(".delete-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const id = e.target.dataset.id;
@@ -49,80 +60,22 @@ function renderBooks(books) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id }),
         });
-        loadBooks();
+        // reload from start
+        start = 0;
+        allLoaded = false;
+        loadBooks(true);
       }
     });
   });
 }
 
-// Add book
-floatBtn.addEventListener("click", async () => {
-  const title = prompt("Book title:");
-  if (!title) return;
-  const author = prompt("Author:");
-  const description = prompt("Description:");
-  const year = parseInt(prompt("Year:")) || new Date().getFullYear();
 
-  await fetch(`${API_BASE}/create.php`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, author, description, year }),
-  });
+loadBooks(true); // initial load
 
-  loadBooks();
-});
-
-// Edit book
-async function editBookPrompt(b) {
-  const title = prompt("Edit title:", b.title);
-  const author = prompt("Edit author:", b.author);
-  const description = prompt("Edit description:", b.description);
-  const year = parseInt(prompt("Edit year:", b.year)) || b.year;
-
-  await fetch(`${API_BASE}/update.php`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: b.id, title, author, description, year }),
-  });
-
-  loadBooks();
-}
-
-// Search
-searchInput.addEventListener("input", async (e) => {
-  const query = e.target.value.toLowerCase();
-  const res = await fetch(`${API_BASE}/read.php`);
-  const data = await res.json();
-
-  const filtered = data.filter(
-    (b) =>
-      b.title.toLowerCase().includes(query) ||
-      b.author.toLowerCase().includes(query)
-  );
-
-  renderBooks(filtered);
-});
-
-// Sort
-sortSelect.addEventListener("change", async (e) => {
-  const res = await fetch(`${API_BASE}/read.php`);
-  let data = await res.json();
-
-  switch (e.target.value) {
-    case "oldest":
-      data.sort((a, b) => a.year - b.year);
-      break;
-    case "title-asc":
-      data.sort((a, b) => a.title.localeCompare(b.title));
-      break;
-    case "title-desc":
-      data.sort((a, b) => b.title.localeCompare(a.title));
-      break;
-    default: // newest
-      data.sort((a, b) => b.year - a.year);
+// infinite scroll event
+window.addEventListener("scroll", () => {
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100) {
+    loadBooks(); // load next batch
+    console.log('ji');
   }
-
-  renderBooks(data);
 });
-
-loadBooks();
